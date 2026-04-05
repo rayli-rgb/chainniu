@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>链牛 — 伊胡塔牛市圈位地图</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: #0f1923;
+      color: #e0e6ef;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(90deg, #0f1923 0%, #1a2940 50%, #0f1923 100%);
+      border-bottom: 1px solid #1e3a5f;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo-icon {
+      font-size: 28px;
+    }
+    .logo-text {
+      font-size: 22px;
+      font-weight: 700;
+      color: #f5a623;
+      letter-spacing: 2px;
+    }
+    .logo-sub {
+      font-size: 12px;
+      color: #7a9bbf;
+      margin-top: 2px;
+    }
+    .header-meta {
+      text-align: right;
+      font-size: 13px;
+      color: #7a9bbf;
+    }
+    .header-meta strong {
+      color: #f5a623;
+    }
+
+    /* ── Layout ── */
+    .main {
+      display: flex;
+      gap: 0;
+      height: calc(100vh - 65px);
+    }
+
+    /* ── Map Panel ── */
+    .map-panel {
+      flex: 1;
+      overflow: auto;
+      padding: 20px;
+    }
+
+    .map-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .map-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #c8d8ea;
+    }
+    .map-title span {
+      font-size: 12px;
+      color: #7a9bbf;
+      font-weight: 400;
+      margin-left: 8px;
+    }
+
+    .legend {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      margin-left: auto;
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      color: #9ab5cc;
+    }
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+    }
+
+    .filter-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filter-label {
+      font-size: 12px;
+      color: #7a9bbf;
+    }
+    .filter-btn {
+      padding: 4px 12px;
+      border-radius: 20px;
+      border: 1px solid #2a4a6e;
+      background: transparent;
+      color: #9ab5cc;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .filter-btn:hover, .filter-btn.active {
+      background: #1a3a5e;
+      border-color: #f5a623;
+      color: #f5a623;
+    }
+
+    /* ── Grid ── */
+    .grid-wrapper {
+      background: #111e2d;
+      border: 1px solid #1e3a5f;
+      border-radius: 8px;
+      padding: 16px;
+      overflow: auto;
+    }
+
+    .section-label {
+      font-size: 11px;
+      color: #4a6a8a;
+      margin-bottom: 6px;
+      letter-spacing: 1px;
+    }
+
+    .grid-section {
+      margin-bottom: 20px;
+    }
+
+    .pen-grid {
+      display: grid;
+      gap: 3px;
+    }
+
+    .pen {
+      width: 22px;
+      height: 22px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.1s;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.7);
+    }
+    .pen:hover {
+      transform: scale(1.35);
+      z-index: 10;
+      box-shadow: 0 0 8px rgba(245,166,35,0.6);
+    }
+    .pen.selected {
+      outline: 2px solid #f5a623;
+      transform: scale(1.3);
+      z-index: 10;
+    }
+
+    /* Status colors */
+    .pen-empty    { background: #1e3248; border: 1px solid #2a4560; color: #6a9aba; }
+    .pen-occupied { background: #1a5c2e; border: 1px solid #2a7a40; }
+    .pen-premium  { background: #7a3a00; border: 1px solid #aa5500; }
+    .pen-sold     { background: #2a2a2a; border: 1px solid #3a3a3a; opacity: 0.5; }
+    .pen-reserved { background: #2a1a5c; border: 1px solid #3a2a7a; }
+
+    /* ── Detail Panel ── */
+    .detail-panel {
+      width: 300px;
+      min-width: 300px;
+      background: #111e2d;
+      border-left: 1px solid #1e3a5f;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .detail-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #1e3a5f;
+      background: #0f1923;
+    }
+    .detail-header h2 {
+      font-size: 15px;
+      color: #c8d8ea;
+      margin-bottom: 4px;
+    }
+    .detail-header p {
+      font-size: 12px;
+      color: #5a7a9a;
+    }
+
+    .detail-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #3a5570;
+      text-align: center;
+      gap: 12px;
+    }
+    .empty-state .icon { font-size: 48px; }
+    .empty-state p { font-size: 13px; line-height: 1.6; }
+
+    /* Pen detail card */
+    .pen-number-badge {
+      background: linear-gradient(135deg, #f5a623, #e8890a);
+      color: #1a0f00;
+      font-size: 22px;
+      font-weight: 800;
+      padding: 10px 16px;
+      border-radius: 8px;
+      display: inline-block;
+      margin-bottom: 16px;
+      letter-spacing: 1px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+    .status-occupied { background: #1a4a2a; color: #4adb6a; border: 1px solid #2a6a3a; }
+    .status-empty    { background: #1a2a3a; color: #5a8aaa; border: 1px solid #2a4a5a; }
+    .status-premium  { background: #4a2a00; color: #f5a623; border: 1px solid #6a4a10; }
+    .status-reserved { background: #2a1a4a; color: #9a7aff; border: 1px solid #4a3a6a; }
+    .status-sold     { background: #2a2a2a; color: #7a7a7a; border: 1px solid #3a3a3a; }
+
+    .info-section {
+      background: #0f1923;
+      border: 1px solid #1e3a5f;
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+    .info-section h3 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #5a7a9a;
+      margin-bottom: 12px;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid #1a2a3a;
+      font-size: 13px;
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-row .label { color: #7a9bbf; }
+    .info-row .value { color: #e0e6ef; font-weight: 500; }
+    .info-row .value.price { color: #f5a623; font-size: 15px; font-weight: 700; }
+    .info-row .value.highlight { color: #4adb6a; }
+
+    .cattle-tag {
+      display: inline-block;
+      background: #1a3a5e;
+      color: #7ab8f5;
+      border: 1px solid #2a5a8e;
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 11px;
+      margin: 2px;
+    }
+
+    .contact-btn {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, #f5a623, #e8890a);
+      color: #1a0f00;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 8px;
+      letter-spacing: 1px;
+      transition: opacity 0.15s;
+    }
+    .contact-btn:hover { opacity: 0.88; }
+
+    /* Stats bar */
+    .stats-bar {
+      padding: 12px 20px;
+      border-top: 1px solid #1e3a5f;
+      background: #0f1923;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .stat {
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: #f5a623;
+    }
+    .stat-label {
+      font-size: 10px;
+      color: #5a7a9a;
+      margin-top: 2px;
+    }
+
+    /* ── Block Column Layout ── */
+    .blocks-area {
+      display: flex;
+      flex-direction: row;
+      gap: 6px;
+      align-items: flex-start;
+    }
+    .block-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+    /* wider aisle every 5 blocks */
+    .block-col.aisle-right { margin-right: 10px; }
+    .block-label {
+      font-size: 9px;
+      color: #4a6a8a;
+      margin-bottom: 3px;
+      white-space: nowrap;
+      letter-spacing: 0.5px;
+    }
+    /* compact pen height in column layout */
+    .block-col .pen {
+      height: 11px;
+      font-size: 7px;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f1923; }
+    ::-webkit-scrollbar-thumb { background: #2a4a6e; border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-icon">🐂</span>
+    <div>
+      <div class="logo-text">链牛</div>
+      <div class="logo-sub">ChainNiu · 伊胡塔牛市交易平台</div>
+    </div>
+  </div>
+  <div class="header-meta">
+    <div>今日日期：<strong id="today-date"></strong></div>
+    <div>交易状态：<strong style="color:#4adb6a">● 开市中</strong></div>
+  </div>
+</header>
+
+<div class="main">
+  <!-- Map Panel -->
+  <div class="map-panel">
+    <div class="map-toolbar">
+      <div class="map-title">伊胡塔牛市 · 圈位总览 <span>共 30 区 · 2010 个圈位</span></div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#1a5c2e;border:1px solid #2a7a40"></div>在售</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#2a1a5c;border:1px solid #3a2a7a"></div>预留</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#7a3a00;border:1px solid #aa5500"></div>精品</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#2a2a2a;border:1px solid #3a3a3a;opacity:.5"></div>已售</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#1e3248;border:1px solid #2a4560"></div>空圈</div>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <span class="filter-label">筛选：</span>
+      <button class="filter-btn active" data-filter="all">全部</button>
+      <button class="filter-btn" data-filter="occupied">在售</button>
+      <button class="filter-btn" data-filter="premium">精品</button>
+      <button class="filter-btn" data-filter="reserved">预留</button>
+      <button class="filter-btn" data-filter="empty">空圈</button>
+    </div>
+
+    <div class="grid-wrapper">
+      <div class="blocks-area" id="blocks-area"></div>
+    </div>
+  </div>
+
+  <!-- Detail Panel -->
+  <div class="detail-panel">
+    <div class="detail-header">
+      <h2>圈位详情</h2>
+      <p>点击地图上的圈位查看详细信息</p>
+    </div>
+    <div class="detail-body" id="detail-body">
+      <div class="empty-state">
+        <div class="icon">🐄</div>
+        <p>点击任意圈位<br>查看今日牛只信息<br>品种 · 数量 · 报价</p>
+      </div>
+    </div>
+    <div class="stats-bar">
+      <div class="stat">
+        <div class="stat-value" id="stat-occupied">—</div>
+        <div class="stat-label">在售圈位</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="stat-total-cattle">—</div>
+        <div class="stat-label">今日头数</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="stat-avg-price">—</div>
+        <div class="stat-label">均价(元/头)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Data Generation ──────────────────────────────────────────────
+const BREEDS = [
+  { name: '西门塔尔', origin: '内蒙古', type: '肉牛' },
+  { name: '安格斯',   origin: '内蒙古', type: '肉牛' },
+  { name: '鲁西黄牛', origin: '山东',   type: '役肉兼用' },
+  { name: '秦川牛',   origin: '陕西',   type: '役肉兼用' },
+  { name: '利木赞',   origin: '内蒙古', type: '肉牛' },
+  { name: '夏洛莱',   origin: '内蒙古', type: '肉牛' },
+  { name: '本地黄牛', origin: '新疆',   type: '役肉兼用' },
+  { name: '新疆褐牛', origin: '新疆',   type: '乳肉兼用' },
+  { name: '哈萨克牛', origin: '新疆',   type: '役肉兼用' },
+  { name: '蒙古牛',   origin: '内蒙古', type: '役肉兼用' },
+];
+
+const SELLERS = [
+  '马家牧场', '伊犁河谷牧业', '天山牧场', '草原兄弟', '金牛贸易',
+  '铁木尔畜牧', '阿力木牧业', '巴合提牧场', '绿洲农牧', '塔城畜牧',
+  '哈萨克斯坦进口', '准噶尔牧场', '裕民牧场', '额敏牧业', '博乐畜牧',
+];
+
+const GENDER = ['公牛', '母牛', '阉牛'];
+const GRADE  = ['育肥牛', '繁殖牛', '架子牛', '犊牛'];
+const CATTLE_TYPE = ['小公牛', '中公牛', '大公牛', '母牛'];
+
+function calcRent(id) {
+  const blockNum = parseInt(id.slice(1, 3));  // 1–30
+  const penNum   = parseInt(id.slice(4, 6));  // 1–67
+  const hDist = Math.abs(blockNum - 15.5) / 14.5;  // 0=center, 1=edge
+  const vDist = Math.abs(penNum - 34) / 33;
+  const dist  = Math.max(hDist, vDist);             // rectangular gradient
+  return Math.round((200 - dist * 150) / 10) * 10; // 50–200, step 10
+}
+
+function seededRand(seed) {
+  let s = seed;
+  return function() {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    return (s >>> 0) / 4294967296;
+  };
+}
+
+function generatePenData(id, index) {
+  const r = seededRand(index * 7919 + 31337);
+  const roll = r();
+
+  // 55% occupied, 8% premium, 10% reserved, 12% sold, 15% empty
+  let status;
+  if      (roll < 0.08)  status = 'premium';
+  else if (roll < 0.55)  status = 'occupied';
+  else if (roll < 0.65)  status = 'reserved';
+  else if (roll < 0.77)  status = 'sold';
+  else                   status = 'empty';
+
+  if (status === 'empty' || status === 'sold') {
+    return { id, index, status, breed: null, rent: calcRent(id) };
+  }
+
+  const breed   = r() < 0.8 ? BREEDS[0] : BREEDS[Math.floor(r() * (BREEDS.length - 1)) + 1];
+  const count   = Math.floor(r() * 18) + 2;          // 2–19头
+  const weight  = Math.floor(r() * 250) + 300;        // 300–550 kg
+  const basePrice = weight * (r() * 12 + 24);         // 24–36 元/kg
+  const price   = Math.round(basePrice / 100) * 100;
+  const seller  = SELLERS[Math.floor(r() * SELLERS.length)];
+  const gender  = GENDER[Math.floor(r() * GENDER.length)];
+  const grade   = GRADE[Math.floor(r() * GRADE.length)];
+  const age        = (r() * 3 + 1).toFixed(1);           // 1.0–4.0 岁
+  const cert       = r() > 0.4;
+  const cattleType = CATTLE_TYPE[Math.floor(r() * CATTLE_TYPE.length)];
+
+  return { id, index, status, breed, count, weight, price, seller, gender, grade, age, cert, cattleType };
+}
+
+// Build all 2010 pens: 30 blocks × 67 pens, IDs like A01-01
+const TOTAL_BLOCKS = 30;
+const PENS_PER_BLOCK = 67;
+
+const allPens = {};
+let globalIndex = 0;
+for (let b = 1; b <= TOTAL_BLOCKS; b++) {
+  const blockId = 'A' + String(b).padStart(2, '0');
+  for (let p = 1; p <= PENS_PER_BLOCK; p++) {
+    const id = blockId + '-' + String(p).padStart(2, '0');
+    allPens[id] = generatePenData(id, globalIndex++);
+  }
+}
+
+// ── Stats ────────────────────────────────────────────────────────
+let occupiedCount = 0, totalCattle = 0, priceSum = 0, priceCount = 0;
+Object.values(allPens).forEach(p => {
+  if (p.status === 'occupied' || p.status === 'premium') {
+    occupiedCount++;
+    totalCattle += p.count;
+    priceSum += p.price;
+    priceCount++;
+  }
+});
+document.getElementById('stat-occupied').textContent = occupiedCount;
+document.getElementById('stat-total-cattle').textContent = totalCattle.toLocaleString();
+document.getElementById('stat-avg-price').textContent = priceCount
+  ? Math.round(priceSum / priceCount).toLocaleString() : '—';
+
+// ── Render Grid ──────────────────────────────────────────────────
+let selectedPen = null;
+let activeFilter = 'all';
+
+function renderGrids() {
+  const area = document.getElementById('blocks-area');
+  area.innerHTML = '';
+  for (let b = 1; b <= TOTAL_BLOCKS; b++) {
+    const blockId = 'A' + String(b).padStart(2, '0');
+    const col = document.createElement('div');
+    col.className = 'block-col';
+    // wider aisle after every 2nd block (except the last)
+    if (b % 2 === 0 && b < TOTAL_BLOCKS) col.classList.add('aisle-right');
+
+    const lbl = document.createElement('div');
+    lbl.className = 'block-label';
+    lbl.textContent = blockId;
+    col.appendChild(lbl);
+
+    for (let p = 1; p <= PENS_PER_BLOCK; p++) {
+      const id = blockId + '-' + String(p).padStart(2, '0');
+      const pen = allPens[id];
+      const el = document.createElement('div');
+      el.className = `pen pen-${pen.status}`;
+      el.dataset.id = id;
+      el.title = id;
+
+      if (activeFilter !== 'all' && pen.status !== activeFilter) {
+        el.style.opacity = '0.15';
+      }
+      if (pen.status === 'occupied' || pen.status === 'premium') {
+        el.textContent = pen.count;
+      }
+      if (pen.status === 'empty') {
+        el.textContent = pen.rent;
+        el.title = `${id}  租金 ¥${pen.rent}/天`;
+      }
+      if (selectedPen === id) el.classList.add('selected');
+
+      el.addEventListener('click', () => onPenClick(id));
+      col.appendChild(el);
+    }
+    area.appendChild(col);
+  }
+}
+
+// ── Detail Panel ─────────────────────────────────────────────────
+const statusLabel = {
+  occupied: ['在售', 'occupied'],
+  premium:  ['精品', 'premium'],
+  reserved: ['预留中', 'reserved'],
+  sold:     ['已售出', 'sold'],
+  empty:    ['空圈', 'empty'],
+};
+
+function onPenClick(id) {
+  selectedPen = id;
+  renderGrids();  // re-render to update selection highlight
+
+  const pen = allPens[id];
+  const [label, cls] = statusLabel[pen.status];
+  const body = document.getElementById('detail-body');
+
+  if (pen.status === 'empty') {
+    body.innerHTML = `
+      <div class="pen-number-badge">${pen.id}</div>
+      <div><span class="status-badge status-empty">● 空圈可租</span></div>
+      <div class="info-section">
+        <h3>圈位信息</h3>
+        <div class="info-row"><span class="label">编号</span><span class="value">${pen.id}</span></div>
+        <div class="info-row"><span class="label">状态</span><span class="value">今日无牛只入圈</span></div>
+        <div class="info-row"><span class="label">面积</span><span class="value">${Math.floor(seededRand(pen.index)() * 20 + 30)} 平方米</span></div>
+      </div>
+      <div class="info-section">
+        <h3>租金信息</h3>
+        <div class="info-row"><span class="label">今日租金</span><span class="value price">¥ ${pen.rent} / 天</span></div>
+        <div class="info-row"><span class="label">位置</span><span class="value">${pen.rent >= 160 ? '核心区' : pen.rent >= 110 ? '中间区' : '边缘区'}</span></div>
+      </div>
+      <button class="contact-btn" onclick="alert('租用功能开发中：${pen.id}，租金 ¥${pen.rent}/天')">📋 联系租用</button>`;
+    return;
+  }
+
+  if (pen.status === 'sold') {
+    body.innerHTML = `
+      <div class="pen-number-badge">${pen.id}</div>
+      <div><span class="status-badge status-sold">● 已售出</span></div>
+      <div class="info-section">
+        <h3>圈位信息</h3>
+        <div class="info-row"><span class="label">编号</span><span class="value">${pen.id}</span></div>
+        <div class="info-row"><span class="label">状态</span><span class="value">今日牛只已成交</span></div>
+      </div>`;
+    return;
+  }
+
+  if (pen.status === 'reserved') {
+    body.innerHTML = `
+      <div class="pen-number-badge">${pen.id}</div>
+      <div><span class="status-badge status-reserved">● 预留中</span></div>
+      <div class="info-section">
+        <h3>圈位信息</h3>
+        <div class="info-row"><span class="label">编号</span><span class="value">${pen.id}</span></div>
+        <div class="info-row"><span class="label">品种</span><span class="value">${pen.breed.name}</span></div>
+        <div class="info-row"><span class="label">数量</span><span class="value">${pen.count} 头</span></div>
+        <div class="info-row"><span class="label">状态</span><span class="value" style="color:#9a7aff">已被预订，请联系市场管理员</span></div>
+      </div>`;
+    return;
+  }
+
+  // occupied or premium
+  body.innerHTML = `
+    <div class="pen-number-badge">${pen.id}${pen.status === 'premium' ? ' ★' : ''}</div>
+    <div><span class="status-badge status-${cls}">● ${label}</span></div>
+
+    <div class="info-section">
+      <h3>牛只信息</h3>
+      <div class="info-row">
+        <span class="label">品种</span>
+        <span class="value">
+          <span class="cattle-tag">${pen.breed.name}</span>
+          <span class="cattle-tag">${pen.breed.type}</span>
+          <span class="cattle-tag">${pen.cattleType}</span>
+        </span>
+      </div>
+      <div class="info-row"><span class="label">数量</span><span class="value highlight">${pen.count} 头</span></div>
+      <div class="info-row"><span class="label">性别</span><span class="value">${pen.gender}</span></div>
+      <div class="info-row"><span class="label">等级</span><span class="value">${pen.grade}</span></div>
+      <div class="info-row"><span class="label">平均月龄</span><span class="value">${pen.age} 岁</span></div>
+      <div class="info-row"><span class="label">平均体重</span><span class="value">${pen.weight} kg / 头</span></div>
+      <div class="info-row"><span class="label">产地</span><span class="value">${pen.breed.origin}</span></div>
+      <div class="info-row"><span class="label">检疫证</span><span class="value">${pen.cert ? '<span style="color:#4adb6a">✓ 已出具</span>' : '<span style="color:#f5a623">待出具</span>'}</span></div>
+    </div>
+
+    <div class="info-section">
+      <h3>价格信息</h3>
+      <div class="info-row"><span class="label">单头报价</span><span class="value price">¥ ${pen.price.toLocaleString()}</span></div>
+      <div class="info-row"><span class="label">总价估算</span><span class="value price">¥ ${(pen.price * pen.count).toLocaleString()}</span></div>
+      <div class="info-row"><span class="label">折算单价</span><span class="value">${Math.round(pen.price / pen.weight)} 元 / kg</span></div>
+    </div>
+
+    <div class="info-section">
+      <h3>卖方信息</h3>
+      <div class="info-row"><span class="label">卖主</span><span class="value">${pen.seller}</span></div>
+      <div class="info-row"><span class="label">入场时间</span><span class="value">今日 06:00–08:00</span></div>
+    </div>
+
+    <button class="contact-btn" onclick="alert('功能开发中：一键联系 ${pen.seller}')">📞 联系卖家</button>
+  `;
+}
+
+// ── Filter ───────────────────────────────────────────────────────
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeFilter = btn.dataset.filter;
+    renderGrids();
+  });
+});
+
+// ── Date ─────────────────────────────────────────────────────────
+const now = new Date();
+document.getElementById('today-date').textContent =
+  `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;
+
+// ── Init ─────────────────────────────────────────────────────────
+renderGrids();
+</script>
+</body>
+</html>
