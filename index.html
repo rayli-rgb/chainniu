@@ -373,6 +373,141 @@
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #0f1923; }
     ::-webkit-scrollbar-thumb { background: #2a4a6e; border-radius: 3px; }
+
+    /* ── Mobile / WeChat ── */
+    @media (max-width: 768px) {
+      body { overflow-x: hidden; }
+
+      header { padding: 10px 14px; }
+      .logo-icon { font-size: 22px; }
+      .logo-text  { font-size: 17px; }
+      .logo-sub   { display: none; }
+      .header-meta { font-size: 11px; }
+
+      .main {
+        flex-direction: column;
+        height: auto;
+        min-height: calc(100vh - 52px);
+      }
+
+      .map-panel {
+        flex: 1;
+        padding: 10px 10px 0;
+        overflow: visible;
+      }
+
+      .map-toolbar { margin-bottom: 8px; }
+      .map-title   { font-size: 13px; }
+      .legend      { display: none; }
+
+      /* 筛选栏横向滚动 */
+      .filter-bar {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        margin-bottom: 8px;
+        padding-bottom: 4px;
+        -webkit-overflow-scrolling: touch;
+      }
+      .filter-bar::-webkit-scrollbar { display: none; }
+      .filter-label { flex-shrink: 0; }
+      .filter-btn   { flex-shrink: 0; }
+
+      /* 地图横向滚动 */
+      .grid-wrapper {
+        padding: 8px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 6px;
+      }
+
+      /* 圈位在移动端稍大，更易触摸 */
+      .pen { width: 24px; }
+      .block-col .pen { height: 13px; }
+
+      /* 遮罩层 */
+      .backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+        z-index: 99;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .backdrop.show { display: block; }
+
+      /* 详情面板 → 底部抽屉 */
+      .detail-panel {
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        width: 100%;
+        min-width: 0;
+        max-height: 75vh;
+        border-left: none;
+        border-top: 1px solid #1e3a5f;
+        border-radius: 16px 16px 0 0;
+        transform: translateY(100%);
+        transition: transform 0.3s ease;
+        z-index: 100;
+        box-shadow: 0 -4px 24px rgba(0,0,0,0.5);
+      }
+      .detail-panel.open { transform: translateY(0); }
+
+      /* 拖拽把手 */
+      .sheet-handle {
+        display: flex;
+        justify-content: center;
+        padding: 10px 0 4px;
+      }
+      .sheet-handle::before {
+        content: '';
+        width: 36px; height: 4px;
+        background: #2a4a6e;
+        border-radius: 2px;
+      }
+
+      /* 关闭按钮 */
+      .detail-header { position: relative; padding-right: 44px; }
+      .close-btn {
+        position: absolute;
+        right: 12px; top: 50%;
+        transform: translateY(-50%);
+        background: #1a2d42;
+        border: none;
+        color: #7a9bbf;
+        font-size: 18px;
+        line-height: 1;
+        width: 30px; height: 30px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .detail-body { padding: 14px 16px; }
+
+      /* 统计栏在移动端始终显示于地图顶部 */
+      .stats-bar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        padding: 8px 14px;
+        background: #0f1923;
+      }
+      .stat-value { font-size: 14px; }
+      .stat-label { font-size: 9px; }
+
+      /* 大按钮更易触摸 */
+      .contact-btn { padding: 14px; font-size: 15px; }
+    }
+
+    /* 桌面端隐藏移动端专属元素 */
+    @media (min-width: 769px) {
+      .backdrop   { display: none !important; }
+      .close-btn  { display: none; }
+      .sheet-handle { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -391,6 +526,7 @@
   </div>
 </header>
 
+<div id="backdrop" class="backdrop"></div>
 <div class="main">
   <!-- Map Panel -->
   <div class="map-panel">
@@ -420,10 +556,12 @@
   </div>
 
   <!-- Detail Panel -->
-  <div class="detail-panel">
+  <div class="detail-panel" id="detail-panel">
+    <div class="sheet-handle"></div>
     <div class="detail-header">
       <h2>圈位详情</h2>
       <p>点击地图上的圈位查看详细信息</p>
+      <button class="close-btn" id="close-btn">✕</button>
     </div>
     <div class="detail-body" id="detail-body">
       <div class="empty-state">
@@ -629,6 +767,7 @@ function onPenClick(id) {
         <div class="info-row"><span class="label">位置</span><span class="value">${pen.rent >= 160 ? '核心区' : pen.rent >= 110 ? '中间区' : '边缘区'}</span></div>
       </div>
       <button class="contact-btn" onclick="alert('租用功能开发中：${pen.id}，租金 ¥${pen.rent}/天')">📋 联系租用</button>`;
+    if (isMobile()) openSheet();
     return;
   }
 
@@ -641,6 +780,7 @@ function onPenClick(id) {
         <div class="info-row"><span class="label">编号</span><span class="value">${pen.id}</span></div>
         <div class="info-row"><span class="label">状态</span><span class="value">今日牛只已成交</span></div>
       </div>`;
+    if (isMobile()) openSheet();
     return;
   }
 
@@ -655,6 +795,7 @@ function onPenClick(id) {
         <div class="info-row"><span class="label">数量</span><span class="value">${pen.count} 头</span></div>
         <div class="info-row"><span class="label">状态</span><span class="value" style="color:#9a7aff">已被预订，请联系市场管理员</span></div>
       </div>`;
+    if (isMobile()) openSheet();
     return;
   }
 
@@ -697,6 +838,8 @@ function onPenClick(id) {
 
     <button class="contact-btn" onclick="alert('功能开发中：一键联系 ${pen.seller}')">📞 联系卖家</button>
   `;
+
+  if (isMobile()) openSheet();
 }
 
 // ── Filter ───────────────────────────────────────────────────────
@@ -713,6 +856,21 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
 const now = new Date();
 document.getElementById('today-date').textContent =
   `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;
+
+// ── Mobile bottom sheet ───────────────────────────────────────────
+function isMobile() { return window.innerWidth <= 768; }
+
+function openSheet() {
+  document.getElementById('detail-panel').classList.add('open');
+  document.getElementById('backdrop').classList.add('show');
+}
+function closeSheet() {
+  document.getElementById('detail-panel').classList.remove('open');
+  document.getElementById('backdrop').classList.remove('show');
+}
+
+document.getElementById('backdrop').addEventListener('click', closeSheet);
+document.getElementById('close-btn').addEventListener('click', closeSheet);
 
 // ── Init ─────────────────────────────────────────────────────────
 renderGrids();
