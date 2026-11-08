@@ -3,11 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="链牛 — 伊胡塔牛市圈位地图，查看 30 区 2010 个圈位的牛只与报价信息">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🐂%3C/text%3E%3C/svg%3E">
   <title>链牛 — 伊胡塔牛市圈位地图</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
+      display: flex;
+      flex-direction: column;
       font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
       background: #0f1923;
       color: #e0e6ef;
@@ -55,7 +59,8 @@
     .main {
       display: flex;
       gap: 0;
-      height: calc(100vh - 65px);
+      flex: 1;
+      min-height: 0;
     }
 
     /* ── Map Panel ── */
@@ -175,6 +180,8 @@
       z-index: 10;
       box-shadow: 0 0 8px rgba(245,166,35,0.6);
     }
+    .pen:focus-visible { outline: 2px solid #7ab8f5; z-index: 10; }
+    .pen.dim { opacity: 0.15; }
     .pen.selected {
       outline: 2px solid #f5a623;
       transform: scale(1.3);
@@ -321,7 +328,9 @@
     /* Stats bar */
     .stats-bar {
       padding: 12px 20px;
-      border-top: 1px solid #1e3a5f;
+      margin-bottom: 16px;
+      border: 1px solid #1e3a5f;
+      border-radius: 8px;
       background: #0f1923;
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -354,7 +363,7 @@
       align-items: center;
       gap: 2px;
     }
-    /* wider aisle every 5 blocks */
+    /* wider aisle after every 2nd block */
     .block-col.aisle-right { margin-right: 10px; }
     .block-label {
       font-size: 9px;
@@ -386,8 +395,8 @@
 
       .main {
         flex-direction: column;
-        height: auto;
-        min-height: calc(100vh - 52px);
+        flex: 1 0 auto;
+        min-height: 0;
       }
 
       .map-panel {
@@ -492,6 +501,7 @@
         position: sticky;
         top: 0;
         z-index: 10;
+        margin-bottom: 8px;
         padding: 8px 14px;
         background: #0f1923;
       }
@@ -522,7 +532,7 @@
   </div>
   <div class="header-meta">
     <div>今日日期：<strong id="today-date"></strong></div>
-    <div>交易状态：<strong style="color:#4adb6a">● 开市中</strong></div>
+    <div>数据：<strong style="color:#f5a623">模拟演示</strong></div>
   </div>
 </header>
 
@@ -530,6 +540,21 @@
 <div class="main">
   <!-- Map Panel -->
   <div class="map-panel">
+    <div class="stats-bar">
+      <div class="stat">
+        <div class="stat-value" id="stat-occupied">—</div>
+        <div class="stat-label">在售圈位</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="stat-total-cattle">—</div>
+        <div class="stat-label">今日头数</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="stat-avg-price">—</div>
+        <div class="stat-label">均价(元/头)</div>
+      </div>
+    </div>
+
     <div class="map-toolbar">
       <div class="map-title">伊胡塔牛市 · 圈位总览 <span>共 30 区 · 2010 个圈位</span></div>
       <div class="legend">
@@ -547,6 +572,7 @@
       <button class="filter-btn" data-filter="occupied">在售</button>
       <button class="filter-btn" data-filter="premium">精品</button>
       <button class="filter-btn" data-filter="reserved">预留</button>
+      <button class="filter-btn" data-filter="sold">已售</button>
       <button class="filter-btn" data-filter="empty">空圈</button>
     </div>
 
@@ -567,20 +593,6 @@
       <div class="empty-state">
         <div class="icon">🐄</div>
         <p>点击任意圈位<br>查看今日牛只信息<br>品种 · 数量 · 报价</p>
-      </div>
-    </div>
-    <div class="stats-bar">
-      <div class="stat">
-        <div class="stat-value" id="stat-occupied">—</div>
-        <div class="stat-label">在售圈位</div>
-      </div>
-      <div class="stat">
-        <div class="stat-value" id="stat-total-cattle">—</div>
-        <div class="stat-label">今日头数</div>
-      </div>
-      <div class="stat">
-        <div class="stat-value" id="stat-avg-price">—</div>
-        <div class="stat-label">均价(元/头)</div>
       </div>
     </div>
   </div>
@@ -692,9 +704,9 @@ document.getElementById('stat-avg-price').textContent = priceCount
 let selectedPen = null;
 let activeFilter = 'all';
 
-function renderGrids() {
+function buildGrid() {
   const area = document.getElementById('blocks-area');
-  area.innerHTML = '';
+  const frag = document.createDocumentFragment();
   for (let b = 1; b <= TOTAL_BLOCKS; b++) {
     const blockId = 'A' + String(b).padStart(2, '0');
     const col = document.createElement('div');
@@ -714,10 +726,10 @@ function renderGrids() {
       el.className = `pen pen-${pen.status}`;
       el.dataset.id = id;
       el.title = id;
+      el.tabIndex = 0;
+      el.setAttribute('role', 'button');
+      el.setAttribute('aria-label', `${id} ${statusLabel[pen.status][0]}`);
 
-      if (activeFilter !== 'all' && pen.status !== activeFilter) {
-        el.style.opacity = '0.15';
-      }
       if (pen.status === 'occupied' || pen.status === 'premium') {
         el.textContent = pen.count;
       }
@@ -725,13 +737,40 @@ function renderGrids() {
         el.textContent = pen.rent;
         el.title = `${id}  租金 ¥${pen.rent}/天`;
       }
-      if (selectedPen === id) el.classList.add('selected');
-
-      el.addEventListener('click', () => onPenClick(id));
       col.appendChild(el);
     }
-    area.appendChild(col);
+    frag.appendChild(col);
   }
+  area.appendChild(frag);
+
+  // event delegation: one listener for all pens
+  area.addEventListener('click', e => {
+    const el = e.target.closest('.pen');
+    if (el) onPenClick(el.dataset.id);
+  });
+  area.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const el = e.target.closest('.pen');
+    if (el) { e.preventDefault(); onPenClick(el.dataset.id); }
+  });
+}
+
+function applyFilter() {
+  document.querySelectorAll('#blocks-area .pen').forEach(el => {
+    const st = allPens[el.dataset.id].status;
+    el.classList.toggle('dim', activeFilter !== 'all' && st !== activeFilter);
+  });
+}
+
+function updateSelection() {
+  document.querySelectorAll('#blocks-area .pen.selected').forEach(el => el.classList.remove('selected'));
+  const el = document.querySelector(`#blocks-area .pen[data-id="${selectedPen}"]`);
+  if (el) el.classList.add('selected');
+}
+
+const HTML_ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => HTML_ESC[c]);
 }
 
 // ── Detail Panel ─────────────────────────────────────────────────
@@ -745,7 +784,7 @@ const statusLabel = {
 
 function onPenClick(id) {
   selectedPen = id;
-  renderGrids();  // re-render to update selection highlight
+  updateSelection();
 
   const pen = allPens[id];
   const [label, cls] = statusLabel[pen.status];
@@ -766,7 +805,7 @@ function onPenClick(id) {
         <div class="info-row"><span class="label">今日租金</span><span class="value price">¥ ${pen.rent} / 天</span></div>
         <div class="info-row"><span class="label">位置</span><span class="value">${pen.rent >= 160 ? '核心区' : pen.rent >= 110 ? '中间区' : '边缘区'}</span></div>
       </div>
-      <button class="contact-btn" onclick="alert('租用功能开发中：${pen.id}，租金 ¥${pen.rent}/天')">📋 联系租用</button>`;
+      <button class="contact-btn" data-msg="${escapeHtml(`租用功能开发中：${pen.id}，租金 ¥${pen.rent}/天`)}">📋 联系租用</button>`;
     if (isMobile()) openSheet();
     return;
   }
@@ -817,7 +856,7 @@ function onPenClick(id) {
       <div class="info-row"><span class="label">数量</span><span class="value highlight">${pen.count} 头</span></div>
       <div class="info-row"><span class="label">性别</span><span class="value">${pen.gender}</span></div>
       <div class="info-row"><span class="label">等级</span><span class="value">${pen.grade}</span></div>
-      <div class="info-row"><span class="label">平均月龄</span><span class="value">${pen.age} 岁</span></div>
+      <div class="info-row"><span class="label">平均年龄</span><span class="value">${pen.age} 岁</span></div>
       <div class="info-row"><span class="label">平均体重</span><span class="value">${pen.weight} kg / 头</span></div>
       <div class="info-row"><span class="label">产地</span><span class="value">${pen.breed.origin}</span></div>
       <div class="info-row"><span class="label">检疫证</span><span class="value">${pen.cert ? '<span style="color:#4adb6a">✓ 已出具</span>' : '<span style="color:#f5a623">待出具</span>'}</span></div>
@@ -832,15 +871,20 @@ function onPenClick(id) {
 
     <div class="info-section">
       <h3>卖方信息</h3>
-      <div class="info-row"><span class="label">卖主</span><span class="value">${pen.seller}</span></div>
+      <div class="info-row"><span class="label">卖主</span><span class="value">${escapeHtml(pen.seller)}</span></div>
       <div class="info-row"><span class="label">入场时间</span><span class="value">今日 06:00–08:00</span></div>
     </div>
 
-    <button class="contact-btn" onclick="alert('功能开发中：一键联系 ${pen.seller}')">📞 联系卖家</button>
+    <button class="contact-btn" data-msg="${escapeHtml('功能开发中：一键联系 ' + pen.seller)}">📞 联系卖家</button>
   `;
 
   if (isMobile()) openSheet();
 }
+
+document.getElementById('detail-body').addEventListener('click', e => {
+  const btn = e.target.closest('.contact-btn');
+  if (btn) alert(btn.dataset.msg);
+});
 
 // ── Filter ───────────────────────────────────────────────────────
 document.querySelectorAll('.filter-btn').forEach(btn => {
@@ -848,7 +892,7 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     activeFilter = btn.dataset.filter;
-    renderGrids();
+    applyFilter();
   });
 });
 
@@ -873,7 +917,9 @@ document.getElementById('backdrop').addEventListener('click', closeSheet);
 document.getElementById('close-btn').addEventListener('click', closeSheet);
 
 // ── Init ─────────────────────────────────────────────────────────
-renderGrids();
+buildGrid();
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
 </script>
 </body>
 </html>
